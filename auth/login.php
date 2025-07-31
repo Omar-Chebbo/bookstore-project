@@ -33,11 +33,11 @@ if(isset($_POST['submit'])){
 
 
             }else{
-                echo "<script> alert ('password or are wrong');</script>";
+                echo "<script> alert ('password or email are wrong');</script>";
             }
 
         }else{
-            echo "<script> alert ('password or are wrong');</script>";
+            echo "<script> alert ('password or email are wrong');</script>";
         }
 
        }
