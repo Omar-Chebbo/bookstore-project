@@ -1,6 +1,17 @@
 <?php require "../includes/header.php"; ?>
 <?php require "../config/config.php"; ?>
-<?php require '../vendor/autoload.php'; ?>
+<?php require '../vendor/autoload.php'; 
+
+// Load TCPDF
+require_once '../tcpdf/tcpdf.php';
+
+//  Load PHPMailer
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+require '../PHPMailer/Exception.php';
+require '../PHPMailer/PHPMailer.php';
+require '../PHPMailer/SMTP.php';
+?>
 
 <?php
 if (!isset($_SESSION['username'])) {
@@ -52,6 +63,85 @@ if (isset($_POST['email'])) {
       ':user_id' => $user_id,
       ':username' => $username
     ]);
+     //  Get cart items
+    $cartItemsStmt = $conn->prepare("SELECT * FROM cart WHERE user_id = :user_id");
+    $cartItemsStmt->execute([':user_id' => $user_id]);
+    $cartItems = $cartItemsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    //  Generate PDF invoice
+    $pdf = new TCPDF();
+    $pdf->AddPage();
+    $pdf->SetFont('helvetica', '', 12);
+    $pdf->Write(0, "INVOICE", '', 0, 'C', true, 0, false, false, 0);
+    $pdf->Ln(5);
+    $pdf->Write(0, "Name: $fname $lname", '', 0, 'L', true, 0, false, false, 0);
+    $pdf->Write(0, "Email: $email", '', 0, 'L', true, 0, false, false, 0);
+    $date = date('F j, Y');
+    $pdf->Write(0, "Date: $date", '', 0, 'L', true, 0, false, false, 0);
+
+    $pdf->Ln(5);
+
+    // Invoice Table
+    $html = '<table border="1" cellpadding="5">
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th>Price</th>
+        <th>Qty</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody>';
+
+    $total = 0;
+    foreach ($cartItems as $item) {
+        $lineTotal = $item['pro_price'] * $item['pro_amount'];
+        $total += $lineTotal;
+        $html .= "<tr>
+            <td>{$item['pro_name']}</td>
+            <td>\${$item['pro_price']}</td>
+            <td>{$item['pro_amount']}</td>
+            <td>\${$lineTotal}</td>
+        </tr>";
+    }
+
+    $html .= "<tr>
+        <td colspan='3' align='right'><strong>Total</strong></td>
+        <td><strong>\$$total</strong></td>
+    </tr></tbody></table>";
+
+    $pdf->writeHTML($html, true, false, false, false, '');
+
+    // Save to file
+    $invoicePath = realpath(__DIR__ . '/../invoices') . '/invoice_' . uniqid() . '.pdf';
+
+    $pdf->Output($invoicePath, 'F');
+
+    // Send Email with PHPMailer
+    $mail = new PHPMailer(true);
+
+    try {
+        $mail->isSMTP();
+        $mail->Host = 'smtp.gmail.com'; 
+        $mail->SMTPAuth = true;
+        $mail->Username = 'projecti439fr@gmail.com'; 
+        $mail->Password = 'cxlmovrdaceztlby';   
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = 587;
+
+        $mail->setFrom('projecti439fr@gmail.com', 'Book Store');
+        $mail->addAddress($email, "$fname $lname");
+
+        $mail->Subject = "Your Invoice from Book Store";
+        $mail->Body = "Hello $fname,\n\nThank you for your order. Please find your invoice attached.";
+        $mail->addAttachment($invoicePath);
+
+        $mail->send();
+    } catch (Exception $e) {
+        error_log("Email sending failed: {$mail->ErrorInfo}");
+    }
+
+   
   }
   header("Location: " . APPURL . "/shopping/thankyou.php");
   exit;

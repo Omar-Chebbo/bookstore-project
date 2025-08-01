@@ -8,7 +8,7 @@
   </head>
   <body>
     <h2 style="text-align:center;">Thank you for your purchase!</h2>
-      <p style="text-align:center;">Your download should start shortly. You will be redirected to the home page...</p>
+      <p style="text-align:center;">Your download should start shortly.Your Invoice will be sent by email.  You will be redirected to the home page...</p>
 
         <!-- Hidden iframe triggers the download -->
           <iframe src="<?php echo APPURL; ?>/download.php" style="display:none;"></iframe>

@@ -1,60 +1,80 @@
-<?php require "../includes/header.php";?>
-<?php require "../config/config.php";?>
-
+<?php require "../includes/header.php"; ?>
+<?php require "../config/config.php"; ?>
 <?php
-            if(isset($_SESSION['username'])){
-                header("loaction: ".APPURL."");
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+require '../PHPMailer/Exception.php';
+require '../PHPMailer/PHPMailer.php';
+require '../PHPMailer/SMTP.php';
+
+session_start();
+
+if (isset($_SESSION['username'])) {
+    header("Location: " . APPURL . "/");
+    exit;
+}
+
+if (isset($_POST['submit'])) {
+    $username = trim($_POST['username']);
+    $email = trim($_POST['email']);
+    $password = $_POST['password'];
+
+    $uppercase = preg_match('@[A-Z]@', $password);
+    $specialChars = preg_match('@[^\w]@', $password);
+
+    if (empty($username) || empty($email) || empty($password)) {
+        echo "<script>alert('All fields are required');</script>";
+    } elseif (strlen($password) < 8 || !$uppercase || !$specialChars) {
+        echo "<script>alert('Password must be at least 8 characters with uppercase and special character');</script>";
+    } else {
+        // Check if email or username exists
+        $stmt = $conn->prepare("SELECT * FROM users WHERE email = :email OR username = :username");
+        $stmt->execute([
+            ':email' => $email,
+            ':username' => $username
+        ]);
+
+        if ($stmt->rowCount() > 0) {
+            echo "<script>alert('Username or email already exists');</script>";
+        } else {
+            $verification_code = rand(100000, 999999);
+
+            // Send email
+            $mail = new PHPMailer(true);
+            try {
+                // $mail->SMTPDebug = 2; // enable for debugging
+                $mail->isSMTP();
+                $mail->Host       = 'smtp.gmail.com';
+                $mail->SMTPAuth   = true;
+                $mail->Username   = 'projecti439fr@gmail.com';
+                $mail->Password   = 'cxlmovrdaceztlby';
+                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                $mail->Port       = 587;
+
+                $mail->setFrom('projecti439fr@gmail.com', 'Book Store');
+                $mail->addAddress($email, $username);
+                $mail->isHTML(true);
+                $mail->Subject = 'Email Verification Code';
+                $mail->Body    = "Your verification code is: <b>$verification_code</b>";
+
+                $mail->send();
+                
+            } catch (Exception $e) {
+                echo "<script>alert('Failed to send email. Try again.');</script>";
+                exit;
             }
-       //check if information is correct then add the new user in database
 
-
-       if(isset($_POST['submit'])){
-
-        $uppercaseChars = 0;
-           $specialChars = 0;
-
-           for($i = 0;$i < strlen($_POST['password']);$i++){
-            if($_POST['password'][$i] >= 'A' && $_POST['password'][$i] <= 'Z'){
-                $uppercaseChars++;
-            }
-            else if($_POST['password'][$i] < 'a' || $_POST['password'][$i] > 'z'){
-                $specialChars++;
-            }
-           }
-
-        //check if any inputs are empty
-           if(empty($_POST['username']) or empty($_POST['email']) or empty($_POST['password'])){
-            echo "<script>alert ('one or more inputs are empty');</script>";
-           }
-           
-           else if(strlen($_POST['password']) < 8 ){
-            echo "<script>alert ('password must contain more than 8 characters');</script>";
-           }
-
-           else if($uppercaseChars == 0 || $specialChars == 0){
-            echo "<script>alert ('password must contain at least one uppercase letter and one special character');</script>";
-           }
-           
-           else {
-            $username=$_POST['username'];
-            $email=$_POST['email'];
-            $password=$_POST['password'];
-
-            //insert querry
-            $insert =$conn->prepare("INSERT INTO users (username, email, mypassword) 
-            VALUES (:username, :email, :mypassword)");
-
-           $insert->execute([
-                ':username'   => $username,
-                ':email'      => $email,
-                ':mypassword' => password_hash($password, PASSWORD_DEFAULT),
-            ]);
-            
-
-
-            header("location:login.php");
-           }
-       }
+            $_SESSION['pending_user'] = [
+                'username' => $username,
+                'email' => $email,
+                'password' => password_hash($password, PASSWORD_DEFAULT),
+                'code' => $verification_code
+            ];
+            header("Location:verify.php");
+            exit;
+        }
+    }
+}
 ?>
 
 
