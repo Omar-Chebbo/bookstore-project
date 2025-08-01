@@ -2,6 +2,7 @@
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
+
 require __DIR__ . '/../config/config.php';
 
 $sql = "SELECT * FROM products WHERE status = 1";
@@ -26,6 +27,7 @@ $stmt = $conn->prepare($sql);
 $stmt->execute($params);
 $products = $stmt->fetchAll(PDO::FETCH_OBJ);
 
+// Back to Home button - now always visible
 echo '<a href="' . APPURL . '" class="btn btn-secondary mb-3">&larr; Back to Home</a>';
 
 if (count($products) === 0) {
@@ -33,7 +35,7 @@ if (count($products) === 0) {
 } else {
     echo '<div class="row mt-5">';
     foreach ($products as $product) {
-        ?>
+?>
         <div class="col-lg-4 col-md-6 col-sm-10 offset-md-0 offset-sm-1">
             <div class="card">
                 <img height="213px" class="card-img-top" src="<?php echo IMGURL . '/' . htmlspecialchars($product->image); ?>">
@@ -50,7 +52,7 @@ if (count($products) === 0) {
             </div>
             <br>
         </div>
-        <?php
+<?php
     }
     echo '</div>';
 }
