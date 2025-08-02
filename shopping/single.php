@@ -67,6 +67,24 @@ if (!empty($_SERVER['QUERY_STRING'])) {
             $product=$row->fetch(PDO::FETCH_OBJ);
 
 
+            //getting comments
+            $row = $conn->prepare("SELECT 
+                c.comment_id,
+                c.content,
+                c.created_at,
+                u.username,
+                COALESCE(SUM(CASE WHEN i.type = 'like' THEN 1 ELSE 0 END), 0) AS likes_count,
+                COALESCE(SUM(CASE WHEN i.type = 'dislike' THEN 1 ELSE 0 END), 0) AS dislikes_count
+                FROM comments c
+                JOIN users u ON u.id = c.user_id
+                LEFT JOIN interactions i ON i.comment_id = c.comment_id
+                WHERE c.product_id = :product_id
+                GROUP BY c.comment_id, c.content, c.created_at, u.username
+                ORDER BY c.created_at DESC");
+
+            $row->execute([":product_id" => $_GET["id"]]);
+
+            $comments = $row->fetchAll(PDO::FETCH_OBJ);
 
 
         }else{
@@ -152,6 +170,67 @@ if (!empty($_SERVER['QUERY_STRING'])) {
             </div>
         </div>
   </div>
+
+  <!-- COMMENT SECTION -->
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm p-4">
+
+                <?php if (isset($_SESSION["user_id"])): ?>
+                    <!-- Comment form for logged-in users -->
+                    <form id="commentForm" class="mb-4">
+                        <div class="input-group">
+                            <input type="text" id="content" class="form-control" placeholder="Add a comment..." required>
+                            <button type="submit" class="btn btn-primary">Add</button>
+                        </div>
+                    </form>
+                <?php else: ?>
+                    <!-- Message for guests -->
+                    <div class="alert alert-info mb-4">
+                        <a href="<?php echo APPURL?>/auth/login.php">Login</a> to add a comment.
+                    </div>
+                <?php endif; ?>
+
+                <!-- Comments list -->
+                <div class="comments-container">
+                    <?php if (count($comments) === 0): ?>
+                        <p id="no-comments-message" class="text-muted">Be the first to leave a comment.</p>
+                    <?php else: ?>
+                        <?php foreach ($comments as $comment): ?>
+                            <div class="border-bottom py-3 position-relative" style="min-height: 80px;">
+                                <strong class="d-block"><?= htmlspecialchars($comment->username) ?></strong>
+                                <p class="mb-0"><?= htmlspecialchars($comment->content) ?></p>
+                                
+                                <small class="text-muted position-absolute top-0 end-0">
+                                    <?= date("M j, Y", strtotime($comment->created_at)) ?>
+                                </small>
+
+                                <div class="position-absolute" style="bottom: 10px; right: 10px;">
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-success me-2 like-btn"
+                                            data-comment-id="<?= $comment->comment_id ?>"
+                                            data-action="like">
+                                        👍 <span class="badge bg-success"><?= $comment->likes_count ?></span>
+                                    </button>
+
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger dislike-btn"
+                                            data-comment-id="<?= $comment->comment_id ?>"
+                                            data-action="dislike">
+                                        👎 <span class="badge bg-danger"><?= $comment->dislikes_count ?></span>
+                                    </button>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
   <?php require "../includes/footer.php";?>
  
 <script> 
@@ -159,6 +238,7 @@ if (!empty($_SERVER['QUERY_STRING'])) {
     $(document).ready(function(){
 
         $(document).on("submit",function(e) {
+        $("#submit").on("click",function(e) {
             //to prevent the refresh of the page, without her every refresh will add to cart
            e.preventDefault();
            var formdata=$("#form-data").serialize()+'&submit=submit';
@@ -202,17 +282,7 @@ if (!empty($_SERVER['QUERY_STRING'])) {
 
         });
 
-    
-    });
-
-    function ref() {
-
-               
-                    $("body").load("single.php?id=<?php echo $id; ?>");
-               
-              }
-
-    $(".btn-delete-wishlist").on('click', function(e) {
+        $(".btn-delete-wishlist").on('click', function(e) {
       e.preventDefault();
       var id = $(this).val();
 
@@ -234,4 +304,116 @@ if (!empty($_SERVER['QUERY_STRING'])) {
       });
 
     });
+    
+
+
+    
+    });
+
+    function ref() {
+
+               
+                    $("body").load("single.php?id=<?php echo $id; ?>");
+               
+              }
+
+    $("#commentForm").on("submit",function(e){
+        e.preventDefault();
+        
+        var productId =  <?= json_encode($_GET["id"]) ?>;
+        var content = $("#content").val();
+        console.log("test");
+
+
+        $.ajax({
+            url:"add-comment.php",
+            type:"POST",
+            data: {
+                product_id: productId,
+                content: content
+            },
+
+            success: function(res) {
+                    console.log(res.trim());
+
+                    const formattedDate = new Date().toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                    });
+                
+                    // Remove the "be the first" message if present
+                    $("#no-comments-message").remove();
+                    
+                    // Append new comment safely
+                    res = String(res.trim());
+                    var info = res.split("%%seperator%%")
+                    $(".comments-container").prepend(
+                        `<div class="border-bottom py-3 position-relative" style="min-height: 80px;">
+                                    <strong class="d-block">${info[1]}</strong>
+                                    <p class="mb-0">${info[0]}</p>
+                                                
+                                    <small class="text-muted position-absolute top-0 end-0">
+                                        ${formattedDate}
+                                    </small>
+
+                                    <div class="position-absolute" style="bottom: 10px; right: 10px;">
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-success me-2 like-btn"
+                                                data-comment-id="${info[2]}"
+                                                data-action="like">
+                                            👍 <span class="badge bg-success">0</span>
+                                        </button>
+
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-danger dislike-btn"
+                                                data-comment-id="${info[2]}"
+                                                data-action="dislike">
+                                            👎 <span class="badge bg-danger">0</span>
+                                        </button>
+                                    </div>
+                                </div>`);
+                    
+                    
+                    $("#commentForm")[0].reset();
+                    
+                }
+        });
+    });
+
+    document.addEventListener('click', function (e) {
+    const button = e.target.closest('.like-btn, .dislike-btn');
+
+    if (!button) return; // Click wasn't on a like/dislike button
+
+    const commentId = button.dataset.commentId;
+    const action = button.dataset.action;
+
+    if (!commentId || !action) {
+        console.error("Missing comment ID or action");
+        return;
+    }
+
+    fetch('like-dislike.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: `comment_id=${commentId}&action=${action}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            const container = button.closest('.position-absolute');
+            container.querySelector('.like-btn .badge').textContent = data.likes_count;
+            container.querySelector('.dislike-btn .badge').textContent = data.dislikes_count;
+        } else {
+            alert(data.message || 'Failed to update vote.');
+        }
+    })
+    .catch(error => {
+        console.error('AJAX error:', error);
+    });
+});
+});
 </script>
