@@ -220,6 +220,106 @@ if (isset($_GET['id'])) {
     </div>
 </div>
 
+<?php if (isset($_SESSION['user_id'])): ?>
+    <div class="container mt-5">
+        <h3><i class="fas fa-book-open me-2"></i> Books You Might Like</h3>
+        <div class="row mt-3">
+            <?php
+            $user_id = $_SESSION['user_id'];
+            $current_book_id = $product->id;
+
+            // Personalized recommendation query
+            $recommend_sql = "
+                SELECT p.*, AVG(r.rating) AS avg_rating
+                FROM products p
+                JOIN ratings r ON p.id = r.book_id
+                WHERE r.user_id IN (
+                    SELECT user_id FROM ratings WHERE book_id = :current_book_id AND rating >= 3
+                )
+                AND p.id != :current_book_id
+                AND p.status = 1
+                AND p.id NOT IN (
+                    SELECT pro_id FROM cart WHERE user_id = :user_id
+                )
+                AND p.id NOT IN (
+                    SELECT pro_id FROM wishlist WHERE user_id = :user_id
+                )
+                GROUP BY p.id
+                ORDER BY avg_rating DESC
+                LIMIT 6
+            ";
+
+            $recommend_stmt = $conn->prepare($recommend_sql);
+            $recommend_stmt->execute([
+                ':current_book_id' => $current_book_id,
+                ':user_id' => $user_id
+            ]);
+            $recommended_books = $recommend_stmt->fetchAll(PDO::FETCH_OBJ);
+
+            // Fallback if no personalized recommendations
+            if (count($recommended_books) === 0) {
+                $fallback_sql = "
+                    SELECT p.*, AVG(r.rating) AS avg_rating
+                    FROM products p
+                    JOIN ratings r ON p.id = r.book_id
+                    WHERE p.status = 1
+                      AND p.id != :current_book_id
+                      AND p.id NOT IN (
+                          SELECT pro_id FROM cart WHERE user_id = :user_id
+                      )
+                      AND p.id NOT IN (
+                          SELECT pro_id FROM wishlist WHERE user_id = :user_id
+                      )
+                    GROUP BY p.id
+                    ORDER BY avg_rating DESC
+                    LIMIT 6
+                ";
+                $fallback_stmt = $conn->prepare($fallback_sql);
+                $fallback_stmt->execute([
+                    ':current_book_id' => $current_book_id,
+                    ':user_id' => $user_id
+                ]);
+                $recommended_books = $fallback_stmt->fetchAll(PDO::FETCH_OBJ);
+            }
+
+            if (count($recommended_books) === 0) {
+                echo "<p class='text-muted'>No recommendations available right now.</p>";
+            } else {
+                foreach ($recommended_books as $rec_book):
+                    $avg_rating = $rec_book->avg_rating ?? 0;
+                    $fullStars = floor($avg_rating);
+                    $halfStar = ($avg_rating - $fullStars) >= 0.5;
+                    $emptyStars = 5 - $fullStars - ($halfStar ? 1 : 0);
+            ?>
+                <div class="col-lg-4 col-md-6 col-sm-10 offset-md-0 offset-sm-1 mb-4">
+                    <div class="card">
+                        <img height="213px" class="card-img-top" src="<?php echo IMGURL . '/' . htmlspecialchars($rec_book->image); ?>" alt="Product image">
+                        <div class="card-body">
+                            <h5><b><?php echo htmlspecialchars($rec_book->name); ?></b></h5>
+                            <div class="text-muted"><?php echo htmlspecialchars($rec_book->price); ?>$</div>
+                            <p><?php echo substr(htmlspecialchars($rec_book->description), 0, 120); ?></p>
+                            <?php
+                                for ($i = 0; $i < $fullStars; $i++) echo '<i class="fas fa-star text-warning"></i>';
+                                if ($halfStar) echo '<i class="fas fa-star-half-alt text-warning"></i>';
+                                for ($i = 0; $i < $emptyStars; $i++) echo '<i class="far fa-star text-warning"></i>';
+                                echo " (" . number_format($avg_rating, 1) . ")";
+                            ?>
+                            <a href="<?php echo APPURL . '/shopping/single.php?id=' . $rec_book->id; ?>" class="btn btn-primary w-100 rounded my-2">
+                                More <i class="fas fa-arrow-right"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            <?php
+                endforeach;
+            }
+            ?>
+        </div>
+    </div>
+<?php endif; ?>
+
+
+
 <?php require "../includes/footer.php"; ?>
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -294,5 +394,4 @@ $(document).ready(function(){
         }
     });
 });
-
 </script>

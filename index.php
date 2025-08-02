@@ -1,6 +1,8 @@
 <?php
 require 'includes/header.php';
 require 'config/config.php';
+require 'includes/chatbot.php';
+
 
 // Base query for active products
 $sql = "SELECT p.* FROM products p WHERE p.status = 1";
@@ -41,6 +43,9 @@ $stmt = $conn->prepare($sql);
 $stmt->execute($params);
 $products = $stmt->fetchAll(PDO::FETCH_OBJ);
 ?>
+<button id="open-chatbot" style="position:fixed; bottom:20px; right:20px; z-index:1001; background:#007bff; color:#fff; border:none; border-radius:5px; padding:10px 16px; cursor:pointer; font-size:16px;">
+  Chat with BookBot
+</button>
 
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
 
