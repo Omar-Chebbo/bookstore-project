@@ -66,6 +66,9 @@ define("ADMINURL", "https://bookstore.kesug.com/I439-Project/admin-panel");
         <li class="nav-item">
           <a class="nav-link text-white" href="<?php echo ADMINURL; ?>/products-admins/show-products.php">Products</a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link text-white" href="<?php echo ADMINURL; ?>/Coupons/show-coupon.php">Coupons</a>
+        </li>
       </ul>
     </nav>
   <?php endif; ?>
