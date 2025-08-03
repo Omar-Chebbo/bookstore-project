@@ -107,6 +107,25 @@ if (isset($_GET['id'])) {
         $user_rating_stmt->execute([':book_id' => $id, ':user_id' => $_SESSION['user_id']]);
         $user_rating = $user_rating_stmt->fetchColumn() ?: 0;
     }
+
+    //getting comments
+            $row = $conn->prepare("SELECT 
+                c.comment_id,
+                c.content,
+                c.created_at,
+                u.username,
+                COALESCE(SUM(CASE WHEN i.type = 'like' THEN 1 ELSE 0 END), 0) AS likes_count,
+                COALESCE(SUM(CASE WHEN i.type = 'dislike' THEN 1 ELSE 0 END), 0) AS dislikes_count
+                FROM comments c
+                JOIN users u ON u.id = c.user_id
+                LEFT JOIN interactions i ON i.comment_id = c.comment_id
+                WHERE c.product_id = :product_id
+                GROUP BY c.comment_id, c.content, c.created_at, u.username
+                ORDER BY c.created_at DESC");
+
+            $row->execute([":product_id" => $_GET["id"]]);
+
+            $comments = $row->fetchAll(PDO::FETCH_OBJ);
 } else {
     header("Location: " . APPURL . "/404.php");
     exit;
@@ -135,7 +154,11 @@ if (isset($_GET['id'])) {
                         <div class="mt-4 mb-3">
                             <h5 class="text-uppercase"><?php echo htmlspecialchars($product->name); ?></h5>
                             <div class="price d-flex flex-row align-items-center">
-                                <span class="act-price"><?php echo htmlspecialchars($product->price); ?> $</span>
+                                <div class="mb-2 text-dark fw-bold" style="font-size: 1.1rem;">
+  <sup class="text-success" style="font-size: 0.8rem;">$</sup>
+  <?php echo number_format($product->price, 2); ?>
+</div>
+
                             </div>
                         </div>
                         <p class="about"><?php echo htmlspecialchars($product->description); ?></p>
@@ -220,103 +243,183 @@ if (isset($_GET['id'])) {
     </div>
 </div>
 
-<?php if (isset($_SESSION['user_id'])): ?>
-    <div class="container mt-5">
-        <h3><i class="fas fa-book-open me-2"></i> Books You Might Like</h3>
-        <div class="row mt-3">
-            <?php
-            $user_id = $_SESSION['user_id'];
-            $current_book_id = $product->id;
+<!-- COMMENT SECTION -->
 
-            // Personalized recommendation query
-            $recommend_sql = "
-                SELECT p.*, AVG(r.rating) AS avg_rating
-                FROM products p
-                JOIN ratings r ON p.id = r.book_id
-                WHERE r.user_id IN (
-                    SELECT user_id FROM ratings WHERE book_id = :current_book_id AND rating >= 3
-                )
-                AND p.id != :current_book_id
-                AND p.status = 1
-                AND p.id NOT IN (
-                    SELECT pro_id FROM cart WHERE user_id = :user_id
-                )
-                AND p.id NOT IN (
-                    SELECT pro_id FROM wishlist WHERE user_id = :user_id
-                )
-                GROUP BY p.id
-                ORDER BY avg_rating DESC
-                LIMIT 6
-            ";
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm p-4">
 
-            $recommend_stmt = $conn->prepare($recommend_sql);
-            $recommend_stmt->execute([
-                ':current_book_id' => $current_book_id,
-                ':user_id' => $user_id
-            ]);
-            $recommended_books = $recommend_stmt->fetchAll(PDO::FETCH_OBJ);
-
-            // Fallback if no personalized recommendations
-            if (count($recommended_books) === 0) {
-                $fallback_sql = "
-                    SELECT p.*, AVG(r.rating) AS avg_rating
-                    FROM products p
-                    JOIN ratings r ON p.id = r.book_id
-                    WHERE p.status = 1
-                      AND p.id != :current_book_id
-                      AND p.id NOT IN (
-                          SELECT pro_id FROM cart WHERE user_id = :user_id
-                      )
-                      AND p.id NOT IN (
-                          SELECT pro_id FROM wishlist WHERE user_id = :user_id
-                      )
-                    GROUP BY p.id
-                    ORDER BY avg_rating DESC
-                    LIMIT 6
-                ";
-                $fallback_stmt = $conn->prepare($fallback_sql);
-                $fallback_stmt->execute([
-                    ':current_book_id' => $current_book_id,
-                    ':user_id' => $user_id
-                ]);
-                $recommended_books = $fallback_stmt->fetchAll(PDO::FETCH_OBJ);
-            }
-
-            if (count($recommended_books) === 0) {
-                echo "<p class='text-muted'>No recommendations available right now.</p>";
-            } else {
-                foreach ($recommended_books as $rec_book):
-                    $avg_rating = $rec_book->avg_rating ?? 0;
-                    $fullStars = floor($avg_rating);
-                    $halfStar = ($avg_rating - $fullStars) >= 0.5;
-                    $emptyStars = 5 - $fullStars - ($halfStar ? 1 : 0);
-            ?>
-                <div class="col-lg-4 col-md-6 col-sm-10 offset-md-0 offset-sm-1 mb-4">
-                    <div class="card">
-                        <img height="213px" class="card-img-top" src="<?php echo IMGURL . '/' . htmlspecialchars($rec_book->image); ?>" alt="Product image">
-                        <div class="card-body">
-                            <h5><b><?php echo htmlspecialchars($rec_book->name); ?></b></h5>
-                            <div class="text-muted"><?php echo htmlspecialchars($rec_book->price); ?>$</div>
-                            <p><?php echo substr(htmlspecialchars($rec_book->description), 0, 120); ?></p>
-                            <?php
-                                for ($i = 0; $i < $fullStars; $i++) echo '<i class="fas fa-star text-warning"></i>';
-                                if ($halfStar) echo '<i class="fas fa-star-half-alt text-warning"></i>';
-                                for ($i = 0; $i < $emptyStars; $i++) echo '<i class="far fa-star text-warning"></i>';
-                                echo " (" . number_format($avg_rating, 1) . ")";
-                            ?>
-                            <a href="<?php echo APPURL . '/shopping/single.php?id=' . $rec_book->id; ?>" class="btn btn-primary w-100 rounded my-2">
-                                More <i class="fas fa-arrow-right"></i>
-                            </a>
+                <?php if (isset($_SESSION["user_id"])): ?>
+                    <!-- Comment form for logged-in users -->
+                    <form id="commentForm" class="mb-4">
+                        <div class="input-group">
+                            <input type="text" id="content" class="form-control" placeholder="Add a comment..." required>
+                            <button type="submit" class="btn btn-primary">Add</button>
                         </div>
+                    </form>
+                <?php else: ?>
+                    <!-- Message for guests -->
+                    <div class="alert alert-info mb-4">
+                        <a href="<?php echo APPURL?>/auth/login.php">Login</a> to add a comment.
                     </div>
+                <?php endif; ?>
+
+                <!-- Comments list -->
+                <div class="comments-container">
+                    <?php if (count($comments) === 0): ?>
+                        <p id="no-comments-message" class="text-muted">Be the first to leave a comment.</p>
+                    <?php else: ?>
+                        <?php foreach ($comments as $comment): ?>
+                            <div class="border-bottom py-3 position-relative" style="min-height: 80px;">
+                                <strong class="d-block"><?= htmlspecialchars($comment->username) ?></strong>
+                                <p class="mb-0"><?= htmlspecialchars($comment->content) ?></p>
+                                
+                                <small class="text-muted position-absolute top-0 end-0">
+                                    <?= date("M j, Y", strtotime($comment->created_at)) ?>
+                                </small>
+
+                                <div class="position-absolute" style="bottom: 10px; right: 10px;">
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-success me-2 like-btn"
+                                            data-comment-id="<?= $comment->comment_id ?>"
+                                            data-action="like">
+                                        👍 <span class="badge bg-success"><?= $comment->likes_count ?></span>
+                                    </button>
+
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger dislike-btn"
+                                            data-comment-id="<?= $comment->comment_id ?>"
+                                            data-action="dislike">
+                                        👎 <span class="badge bg-danger"><?= $comment->dislikes_count ?></span>
+                                    </button>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
-            <?php
-                endforeach;
-            }
-            ?>
+
+            </div>
         </div>
     </div>
+</div>
+
+<?php if (isset($_SESSION['user_id'])): ?>
+  <div class="container mt-5">
+    <h3><i class="fas fa-book me-2"></i> Books You Might Like</h3>
+
+    <?php
+    $user_id = $_SESSION['user_id'];
+    $current_book_id = $product->id;
+
+    // Main recommendation query
+    $recommend_sql = "
+      SELECT p.*, AVG(r.rating) AS avg_rating
+      FROM products p
+      JOIN ratings r ON p.id = r.book_id
+      WHERE r.user_id IN (
+          SELECT user_id FROM ratings WHERE book_id = :current_book_id AND rating >= 3
+      )
+      AND p.id != :current_book_id
+      AND p.status = 1
+      AND p.id NOT IN (
+          SELECT pro_id FROM cart WHERE user_id = :user_id
+      )
+      AND p.id NOT IN (
+          SELECT pro_id FROM wishlist WHERE user_id = :user_id
+      )
+      GROUP BY p.id
+      ORDER BY avg_rating DESC
+      LIMIT 10
+    ";
+
+    $recommend_stmt = $conn->prepare($recommend_sql);
+    $recommend_stmt->execute([
+      ':current_book_id' => $current_book_id,
+      ':user_id' => $user_id
+    ]);
+    $recommended_books = $recommend_stmt->fetchAll(PDO::FETCH_OBJ);
+
+    // Fallback if no matches
+    if (count($recommended_books) === 0) {
+      $fallback_sql = "
+        SELECT p.*, AVG(r.rating) AS avg_rating
+        FROM products p
+        JOIN ratings r ON p.id = r.book_id
+        WHERE p.status = 1
+          AND p.id != :current_book_id
+          AND p.id NOT IN (
+              SELECT pro_id FROM cart WHERE user_id = :user_id
+          )
+          AND p.id NOT IN (
+              SELECT pro_id FROM wishlist WHERE user_id = :user_id
+          )
+        GROUP BY p.id
+        ORDER BY avg_rating DESC
+        LIMIT 10
+      ";
+      $fallback_stmt = $conn->prepare($fallback_sql);
+      $fallback_stmt->execute([
+        ':current_book_id' => $current_book_id,
+        ':user_id' => $user_id
+      ]);
+      $recommended_books = $fallback_stmt->fetchAll(PDO::FETCH_OBJ);
+    }
+
+    if (count($recommended_books) === 0): ?>
+      <p class="text-muted">No recommendations available right now.</p>
+    <?php else: ?>
+      <div class="d-flex overflow-auto gap-3 py-2 px-1">
+        <?php foreach ($recommended_books as $rec_book):
+          $avg_rating = $rec_book->avg_rating ?? 0;
+          $fullStars = floor($avg_rating);
+          $halfStar = ($avg_rating - $fullStars) >= 0.5;
+          $emptyStars = 5 - $fullStars - ($halfStar ? 1 : 0);
+        ?>
+          <div class="card flex-shrink-0 shadow-sm border-0" style="min-width: 220px; max-width: 220px;">
+            <a href="<?php echo APPURL . '/shopping/single.php?id=' . $rec_book->id; ?>">
+              <img src="<?php echo IMGURL . '/' . htmlspecialchars($rec_book->image); ?>" class="card-img-top object-fit-cover" height="180" alt="Book image">
+            </a>
+            <div class="card-body d-flex flex-column">
+              <h6 class="text-truncate" title="<?php echo htmlspecialchars($rec_book->name); ?>">
+                <strong><?php echo htmlspecialchars($rec_book->name); ?></strong>
+              </h6>
+
+              <!-- Price -->
+              <div class="mb-1 text-dark fw-bold" style="font-size: 1rem;">
+                <sup class="text-success" style="font-size: 0.8rem;">$</sup>
+                <?php echo number_format($rec_book->price, 2); ?>
+              </div>
+
+              <!-- Language badge -->
+              <span class="badge bg-secondary mb-1">
+                <i class="fas fa-language me-1"></i><?php echo htmlspecialchars($rec_book->language); ?>
+              </span>
+
+              <!-- Rating -->
+              <div class="rating mb-2">
+                <?php
+                for ($i = 0; $i < $fullStars; $i++) echo '<i class="fas fa-star text-warning me-1"></i>';
+                if ($halfStar) echo '<i class="fas fa-star-half-alt text-warning me-1"></i>';
+                for ($i = 0; $i < $emptyStars; $i++) echo '<i class="far fa-star text-warning me-1"></i>';
+                echo $avg_rating > 0
+                  ? '<span class="text-muted small">(' . number_format($avg_rating, 1) . ')</span>'
+                  : '<span class="text-muted small">(No ratings)</span>';
+                ?>
+              </div>
+
+              <a href="<?php echo APPURL . '/shopping/single.php?id=' . $rec_book->id; ?>" class="btn btn-outline-primary btn-sm mt-auto w-100">
+                More <i class="fas fa-arrow-right ms-1"></i>
+              </a>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+    <?php endif; ?>
+  </div>
 <?php endif; ?>
+
+
 
 
 
@@ -394,4 +497,104 @@ $(document).ready(function(){
         }
     });
 });
+
+$("#commentForm").on("submit",function(e){
+        e.preventDefault();
+        
+        var productId =  <?= json_encode($_GET["id"]) ?>;
+        var content = $("#content").val();
+        console.log("test");
+
+
+        $.ajax({
+            url:"add-comment.php",
+            type:"POST",
+            data: {
+                product_id: productId,
+                content: content
+            },
+
+            success: function(res) {
+                    console.log(res.trim());
+
+                    const formattedDate = new Date().toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                    });
+                
+                    // Remove the "be the first" message if present
+                    $("#no-comments-message").remove();
+                    
+                    // Append new comment safely
+                    res = String(res.trim());
+                    var info = res.split("%%seperator%%")
+                    $(".comments-container").prepend(
+                        `<div class="border-bottom py-3 position-relative" style="min-height: 80px;">
+                                    <strong class="d-block">${info[1]}</strong>
+                                    <p class="mb-0">${info[0]}</p>
+                                                
+                                    <small class="text-muted position-absolute top-0 end-0">
+                                        ${formattedDate}
+                                    </small>
+
+                                    <div class="position-absolute" style="bottom: 10px; right: 10px;">
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-success me-2 like-btn"
+                                                data-comment-id="${info[2]}"
+                                                data-action="like">
+                                            👍 <span class="badge bg-success">0</span>
+                                        </button>
+
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-danger dislike-btn"
+                                                data-comment-id="${info[2]}"
+                                                data-action="dislike">
+                                            👎 <span class="badge bg-danger">0</span>
+                                        </button>
+                                    </div>
+                                </div>`);
+                    
+                    
+                    $("#commentForm")[0].reset();
+                    
+                }
+        });
+    });
+
+    document.addEventListener('click', function (e) {
+    const button = e.target.closest('.like-btn, .dislike-btn');
+
+    if (!button) return; // Click wasn't on a like/dislike button
+
+    const commentId = button.dataset.commentId;
+    const action = button.dataset.action;
+
+    if (!commentId || !action) {
+        console.error("Missing comment ID or action");
+        return;
+    }
+
+    fetch('like-dislike.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: `comment_id=${commentId}&action=${action}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            const container = button.closest('.position-absolute');
+            container.querySelector('.like-btn .badge').textContent = data.likes_count;
+            container.querySelector('.dislike-btn .badge').textContent = data.dislikes_count;
+        } else {
+            alert(data.message || 'Failed to update vote.');
+        }
+    })
+    .catch(error => {
+        console.error('AJAX error:', error);
+    });
+});
+    
 </script>
