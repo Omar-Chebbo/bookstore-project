@@ -1,55 +1,92 @@
-<?php require "../layouts/header.php" ?>
-<?php require "../../config/config.php" ?>
+<?php require "../layouts/header.php"; ?>
+<?php require "../../config/config.php"; ?>
 
 <?php
-if (!isset($_SESSION['adminname'])) {
-  header("location: " . ADMINURL . "/login-admins.php");
-  exit();
+session_start();
+
+//  Ensure only logged-in admins can access
+if (!isset($_SESSION['adminname']) || $_SESSION['role'] === 'Employee') {
+  header("Location: " . ADMINURL);
+  exit;
 }
 
 if (isset($_POST['submit'])) {
-  if (empty($_POST['adminname']) || empty($_POST['email']) || empty($_POST['password'])) {
-    echo "<script>alert('One or more inputs are empty');</script>";
+  
+  if (
+    empty($_POST['adminname']) ||
+    empty($_POST['email']) ||
+    empty($_POST['password']) ||
+    empty($_POST['role'])
+  ) {
+    echo "<script>alert('All fields are required');</script>";
   } else {
-    $adminname = $_POST['adminname'];
-    $email = $_POST['email'];
-    $password = $_POST['password'];
+    try {
+      $adminname = trim($_POST['adminname']);
+      $email = trim($_POST['email']);
+      $password = $_POST['password'];
+      $role = $_POST['role'];
 
-    $insert = $conn->prepare("INSERT INTO admins (adminname, email, mypassword) VALUES (:adminname, :email, :mypassword)");
-    $insert->execute([
-      ':adminname'   => $adminname,
-      ':email'       => $email,
-      ':mypassword'  => password_hash($password, PASSWORD_DEFAULT),
-    ]);
+      
+      $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
-    header("location: " . ADMINURL . "/admins/admis.php");
-    exit();
+      
+      $insert = $conn->prepare("INSERT INTO admins (adminname, email, mypassword, role) VALUES (:adminname, :email, :mypassword, :role)");
+      $insert->execute([
+        ':adminname' => $adminname,
+        ':email' => $email,
+        ':mypassword' => $hashedPassword,
+        ':role' => $role
+      ]);
+
+      
+      header("Location: " . ADMINURL . "/admins/admins.php");
+      exit;
+
+    } catch (PDOException $e) {
+      die("Database error: " . $e->getMessage());
+    }
   }
 }
 ?>
 
+<!--  Create Admin Form -->
+<div class="row">
+  <div class="col-md-8 offset-md-2">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title mb-5 d-inline">Create Admin</h5>
+        <form method="POST" action="create-admins.php">
 
-  <div class="row">
-    <div class="col-md-8 offset-md-2">
-      <div class="card">
-        <div class="card-body">
-          <h5 class="card-title mb-5 d-inline">Create Admins</h5>
-          <form method="POST" action="create-admins.php">
-            <div class="form-outline mb-4">
-              <input type="text" name="adminname" class="form-control" placeholder="Username" />
-            </div>
-            <div class="form-outline mb-4">
-              <input type="email" name="email" class="form-control" placeholder="Email" />
-            </div>
-            <div class="form-outline mb-4">
-              <input type="password" name="password" class="form-control" placeholder="Password" />
-            </div>
-            <button type="submit" name="submit" class="btn btn-primary mb-4">Create</button>
-          </form>
-        </div>
+          <!-- Admin Name -->
+          <div class="form-outline mb-4">
+            <input type="text" name="adminname" class="form-control" placeholder="Username" />
+          </div>
+
+          <!-- Email -->
+          <div class="form-outline mb-4">
+            <input type="email" name="email" class="form-control" placeholder="Email" />
+          </div>
+
+          <!-- Password -->
+          <div class="form-outline mb-4">
+            <input type="password" name="password" class="form-control" placeholder="Password" />
+          </div>
+
+          <!-- Role Selection -->
+          <div class="form-outline mb-4">
+            <select name="role" class="form-control">
+              <option value="">Select Role</option>
+              <option value="Manager">Manager</option>
+              <option value="Employee">Employee</option>
+            </select>
+          </div>
+
+          <!-- Submit -->
+          <button type="submit" name="submit" class="btn btn-primary mb-4">Create</button>
+        </form>
       </div>
     </div>
   </div>
 </div>
 
-<?php require "../layouts/footer.php" ?>
+<?php require "../layouts/footer.php"; ?>

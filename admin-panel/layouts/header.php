@@ -30,7 +30,7 @@ define("ADMINURL", "https://bookstore.kesug.com/I439-Project/admin-panel");
 
       <div class="collapse navbar-collapse" id="topNavbar">
         <ul class="navbar-nav ml-auto">
-          <?php if (!isset($_SESSION['adminname'])) : ?>
+          <?php if (!isset($_SESSION['adminname']) ) : ?>
             <li class="nav-item">
               <a class="nav-link" href="<?php echo ADMINURL; ?>/admins/login-admins.php">Login</a>
             </li>
@@ -51,27 +51,33 @@ define("ADMINURL", "https://bookstore.kesug.com/I439-Project/admin-panel");
   </nav>
 
   <!-- Left vertical sidebar (separate nav) -->
-  <?php if (isset($_SESSION['adminname'])) : ?>
-    <nav class="side-nav bg-dark position-fixed" style="top: 56px; left: 0; width: 200px; height: calc(100% - 56px); padding-top: 1rem;">
-      <ul class="nav flex-column">
-        <li class="nav-item">
-          <a class="nav-link text-white" href="<?php echo ADMINURL; ?>">Home</a>
-        </li>
+ <?php if (isset($_SESSION['adminname'])) : ?>
+  <nav class="side-nav bg-dark position-fixed" style="top: 56px; left: 0; width: 200px; height: calc(100% - 56px); padding-top: 1rem;">
+    <ul class="nav flex-column">
+      <li class="nav-item">
+        <a class="nav-link text-white" href="<?php echo ADMINURL; ?>">Home</a>
+      </li>
+
+      <!--  Show only if not Employee -->
+      <?php if ($_SESSION['admin_role'] !== 'Employee' ) : ?>
         <li class="nav-item">
           <a class="nav-link text-white" href="<?php echo ADMINURL; ?>/admins/admins.php">Admins</a>
         </li>
-        <li class="nav-item">
-          <a class="nav-link text-white" href="<?php echo ADMINURL; ?>/categories-admins/show-categories.php">Categories</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link text-white" href="<?php echo ADMINURL; ?>/products-admins/show-products.php">Products</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link text-white" href="<?php echo ADMINURL; ?>/Coupons/show-coupon.php">Coupons</a>
-        </li>
-      </ul>
-    </nav>
-  <?php endif; ?>
+      <?php endif; ?>
+
+      <li class="nav-item">
+        <a class="nav-link text-white" href="<?php echo ADMINURL; ?>/categories-admins/show-categories.php">Categories</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link text-white" href="<?php echo ADMINURL; ?>/products-admins/show-products.php">Products</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link text-white" href="<?php echo ADMINURL; ?>/Coupons/show-coupon.php">Coupons</a>
+      </li>
+    </ul>
+  </nav>
+<?php endif; ?>
+
 
   <!-- Page content wrapper with left margin -->
   <div id="wrapper" style="margin-left: 200px; padding: 90px 15px 15px;">

@@ -1,76 +1,71 @@
-<?php require "../layouts/header.php" ?>
-<?php require "../../config/config.php" ?>
+<?php require "../layouts/header.php"; ?>
+<?php require "../../config/config.php"; ?>
+
 <?php
-/*if (!isset($_SESSION['adminname'])) {
-  header("Location: " . ADMINURL);
-  exit();
-}*/
-
-
 if (isset($_POST['submit'])) {
 
-  //check if any inputs are empty
-  if (empty($_POST['email']) or empty($_POST['password'])) {
-    echo "<script> alert ('one or more inputs are empty');</script>";
+  if (empty($_POST['email']) || empty($_POST['password'])) {
+    echo "<script>alert('One or more inputs are empty');</script>";
   } else {
-
-    $email = $_POST['email'];
+    $email = trim($_POST['email']);
     $password = $_POST['password'];
 
-    //search if email exist
-    $login = $conn->query("SELECT * FROM admins WHERE email='$email'");
-    $login->execute();
+    try {
+      $login = $conn->prepare("SELECT * FROM admins WHERE email = :email");
+      $login->execute([':email' => $email]);
+      $fetch = $login->fetch(PDO::FETCH_ASSOC);
 
-    $fetch = $login->fetch(PDO::FETCH_ASSOC);
+      if ($fetch && password_verify($password, $fetch['mypassword'])) {
 
-    if ($login->rowCount() > 0) {
-      //verify the password after unhashed it
-      if (password_verify($password, $fetch['mypassword'])) {
+        //  Prevent login if account is revoked
+        if ((int)$fetch['status'] !== 1) {
+          echo "<script>alert('Your account has been revoked. Contact a manager.');</script>";
+          exit;
+        }
 
+        //  Set session
         $_SESSION['adminname'] = $fetch['adminname'];
         $_SESSION['admin_id'] = $fetch['id'];
-        header("location:" . ADMINURL . "");
-        echo "<script> alert ('Successfully logged in');</script>";
+        $_SESSION['admin_role'] = $fetch['role'];
+
+        header("Location: " . ADMINURL);
+        exit;
+
       } else {
-        echo "<script> alert ('password or are wrong');</script>";
+        echo "<script>alert('Email or password is incorrect');</script>";
       }
-    } else {
-      echo "<script> alert ('password or are wrong');</script>";
+
+    } catch (PDOException $e) {
+      die("Database error: " . $e->getMessage());
     }
   }
 }
-
-
 ?>
+
+<!-- Login Form -->
 <div class="row">
   <div class="col">
     <div class="card">
       <div class="card-body">
         <h5 class="card-title mt-5">Login</h5>
-        <form method="POST" class="p-auto" action="login-admins.php">
-          <!-- Email input -->
-          <div class="form-outline mb-4">
-            <input type="email" name="email" id="form2Example1" class="form-control" placeholder="Email" />
+        <form method="POST" action="login-admins.php">
 
+          <!-- Email -->
+          <div class="form-outline mb-4">
+            <input type="email" name="email" class="form-control" placeholder="Email" required />
           </div>
 
-
-          <!-- Password input -->
+          <!-- Password -->
           <div class="form-outline mb-4">
-            <input type="password" name="password" id="form2Example2" placeholder="Password" class="form-control" />
-
+            <input type="password" name="password" class="form-control" placeholder="Password" required />
           </div>
 
-
-
-          <!-- Submit button -->
-          <button type="submit" name="submit" class="btn btn-primary  mb-4 text-center">Login</button>
-
-
+          <!-- Submit -->
+          <button type="submit" name="submit" class="btn btn-primary mb-4">Login</button>
         </form>
-
       </div>
     </div>
+  </div>
+</div>
 
-
-<?php require "../layouts/footer.php" ?>
+<?php require "../layouts/footer.php"; ?>
