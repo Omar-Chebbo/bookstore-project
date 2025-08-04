@@ -49,47 +49,26 @@ try {
                 </td>
                 <td>
                   <?php
-                  // Protect admin with id=1 from any action except himself cannot delete or revoke himself.
                   $isAdmin1 = ($admin->id == 1);
                   $isSelf = ($admin->id == $_SESSION['admin_id']);
-                  $currentUserRole = $_SESSION['admin_role'];
-                  $currentUserId = $_SESSION['admin_id'];
-
-                  // Conditions to disable actions:
-                  // - No one except Admin #1 can edit/delete/revoke Admin #1
-                  // - Admin #1 cannot delete/revoke himself
-                  // - Admin #1 can edit himself but cannot set role to Employee (handled in edit-admin.php)
-                  // - Users cannot delete/revoke themselves
 
                   if ($isAdmin1) {
-                    // Admin #1 row
                     if ($isSelf) {
-                      // Admin #1 viewing himself: no delete/revoke buttons, only edit button with restrictions
                       ?>
-                      <!-- Edit Button with modal -->
                       <button type="button" class="btn btn-warning btn-sm" data-toggle="modal" data-target="#editModal<?= $admin->id; ?>">Edit</button>
                       <span class="text-muted ml-2">Protected</span>
                       <?php
                     } else {
-                      // Other users viewing Admin #1 row: no actions allowed
                       echo "<span class='text-muted'>Protected</span>";
                     }
                   } else {
-                    // For other admins, allow edit/delete/revoke but prevent users from deleting/revoking themselves
                     if (!$isSelf) {
-                      // Edit button
                       ?>
                       <button type="button" class="btn btn-warning btn-sm" data-toggle="modal" data-target="#editModal<?= $admin->id; ?>">Edit</button>
-                      <?php
-                      // Delete form
-                      ?>
                       <form method="POST" action="delete-admin.php" class="d-inline-block" onsubmit="return confirm('Are you sure you want to delete this admin?');">
                         <input type="hidden" name="admin_id" value="<?= $admin->id; ?>">
                         <button type="submit" class="btn btn-danger btn-sm">Delete</button>
                       </form>
-                      <?php
-                      // Toggle status form
-                      ?>
                       <form method="POST" action="status-admin.php" class="d-inline-block">
                         <input type="hidden" name="admin_id" value="<?= $admin->id; ?>">
                         <input type="hidden" name="new_status" value="<?= $admin->status == 1 ? 0 : 1; ?>">
@@ -99,8 +78,6 @@ try {
                       </form>
                       <?php
                     } else {
-                      // For self row, no delete/revoke buttons allowed
-                      // Allow edit modal
                       ?>
                       <button type="button" class="btn btn-warning btn-sm" data-toggle="modal" data-target="#editModal<?= $admin->id; ?>">Edit</button>
                       <span class="text-muted ml-2">Protected</span>
@@ -111,11 +88,10 @@ try {
                 </td>
               </tr>
 
-              <!-- Edit Modal -->
-              <?php if (!$isAdmin1 || $isSelf) : // Admin #1 can edit himself with restrictions ?>
+              <?php if (!$isAdmin1 || $isSelf) : ?>
               <div class="modal fade" id="editModal<?= $admin->id; ?>" tabindex="-1" role="dialog" aria-labelledby="editModalLabel<?= $admin->id; ?>" aria-hidden="true">
                 <div class="modal-dialog" role="document">
-                  <form method="POST" action="edit-admin.php">
+                  <form method="POST" action="edit-admin.php" onsubmit="return validateForm<?= $admin->id ?>()">
                     <input type="hidden" name="admin_id" value="<?= $admin->id; ?>">
                     <div class="modal-content">
                       <div class="modal-header">
@@ -132,10 +108,17 @@ try {
                           <input type="email" name="email" class="form-control" value="<?= htmlspecialchars($admin->email); ?>" required>
                         </div>
                         <div class="form-group">
+                          <label>New Password <small class="text-muted">(Leave blank to keep current password)</small></label>
+                          <input type="password" name="password" id="password<?= $admin->id ?>" class="form-control" placeholder="Optional, min 6 characters">
+                        </div>
+                        <div class="form-group">
+                          <label>Confirm Password</label>
+                          <input type="password" name="confirm_password" id="confirm_password<?= $admin->id ?>" class="form-control" placeholder="Repeat new password">
+                          <small id="error<?= $admin->id ?>" class="form-text text-danger d-none">Passwords do not match or too short.</small>
+                        </div>
+                        <div class="form-group">
                           <label>Role</label>
-                          <select name="role" class="form-control" required
-                            <?= ($isAdmin1 && $isSelf) ? 'disabled' : ''; ?>
-                          >
+                          <select name="role" class="form-control" required <?= ($isAdmin1 && $isSelf) ? 'disabled' : ''; ?> >
                             <option value="Manager" <?= $admin->role == 'Manager' ? 'selected' : ''; ?>>Manager</option>
                             <option value="Employee" <?= $admin->role == 'Employee' ? 'selected' : ''; ?>>Employee</option>
                           </select>
@@ -152,6 +135,23 @@ try {
                   </form>
                 </div>
               </div>
+              <script>
+                function validateForm<?= $admin->id ?>() {
+                  const password = document.getElementById('password<?= $admin->id ?>').value;
+                  const confirm = document.getElementById('confirm_password<?= $admin->id ?>').value;
+                  const error = document.getElementById('error<?= $admin->id ?>');
+
+                  if (password.length > 0 || confirm.length > 0) {
+                    if (password.length < 6 || password !== confirm) {
+                      error.classList.remove('d-none');
+                      return false;
+                    }
+                  }
+
+                  error.classList.add('d-none');
+                  return true;
+                }
+              </script>
               <?php endif; ?>
 
             <?php endforeach; ?>

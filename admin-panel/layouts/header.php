@@ -14,7 +14,8 @@ define("ADMINURL", "https://bookstore.kesug.com/I439-Project/admin-panel");
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet">
   <link href="styles/style.css" rel="stylesheet">
-  <script src="https://code.jquery.com/jquery-1.11.1.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
 </head>
 
@@ -35,14 +36,9 @@ define("ADMINURL", "https://bookstore.kesug.com/I439-Project/admin-panel");
               <a class="nav-link" href="<?php echo ADMINURL; ?>/admins/login-admins.php">Login</a>
             </li>
           <?php else : ?>
-            <li class="nav-item dropdown">
-              <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownUser" role="button" data-toggle="dropdown"
-                aria-haspopup="true" aria-expanded="false">
-                <?php echo $_SESSION['adminname']; ?>
-              </a>
-              <div class="dropdown-menu dropdown-menu-right" aria-labelledby="navbarDropdownUser">
-                <a class="dropdown-item" href="<?php echo ADMINURL; ?>/admins/logout-admins.php">Logout</a>
-              </div>
+            <li class="nav-item d-flex align-items-center">
+                <span class="nav-link text-white mr-2"><?php echo $_SESSION['adminname']; ?></span>
+                <a class="btn btn-sm btn-outline-light" href="<?php echo ADMINURL; ?>/admins/logout-admins.php">Logout</a>
             </li>
           <?php endif; ?>
         </ul>
@@ -74,6 +70,11 @@ define("ADMINURL", "https://bookstore.kesug.com/I439-Project/admin-panel");
       <li class="nav-item">
         <a class="nav-link text-white" href="<?php echo ADMINURL; ?>/Coupons/show-coupon.php">Coupons</a>
       </li>
+      <?php if ($_SESSION['admin_role'] !== 'Employee' ) : ?>
+      <li class="nav-item">
+          <a class="nav-link text-white" href="<?php echo ADMINURL; ?>/users-admins/show-users.php">Users</a>
+        </li>
+        <?php endif; ?>
     </ul>
   </nav>
 <?php endif; ?>

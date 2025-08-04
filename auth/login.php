@@ -23,6 +23,10 @@ if(isset($_POST['submit'])){
         $fetch=$login->fetch(PDO::FETCH_ASSOC);
 
         if($login->rowCount()>0){
+            //verify if email is banned
+            if($fetch["is_banned"] != 0){
+                echo "<script>alert('this user has been banned');</script>";
+            }
             //verify the password after unhashed it
             if(password_verify($password,$fetch['mypassword'])){ 
 
