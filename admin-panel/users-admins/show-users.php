@@ -1,56 +1,75 @@
 <?php
-// show-users.php
+
 require "../layouts/header.php";
 require "../../config/config.php";
 
-// 1. Ensure admin is logged in
+//  Ensure admin is logged in
 session_start();
 if (!isset($_SESSION['adminname'])) {
     header("location: " . ADMINURL . "/admins/login-admins.php");
     exit;
 }
 
-// 2. Fetch users (including country & birthdate)
+//  Fetch users (including country & birthdate)
 $select = $conn->prepare("SELECT * FROM users");
 $select->execute();
 $users = $select->fetchAll(PDO::FETCH_OBJ);
 
-// 3. Compute bulk coupon limit = floor(total_users / 2)
+//  Compute bulk coupon limit = floor(total_users / 2)
 $totalUsers = count($users);
 $bulkLimit = floor($totalUsers / 2);
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Manage Users</title>
   <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet" />
 </head>
 <body>
 <div class="container mt-4">
 
-  <!-- Header with Create + Bulk Gift buttons -->
+  <!-- Header with Create Users, Send Announcement, Send Gift to All buttons -->
   <div class="d-flex mb-3">
     <h3 class="mr-auto">Users</h3>
+
+    <!-- Send Announcement Button -->
+    <button id="sendAnnouncementBtn" class="btn btn-info mr-2">
+      Send Announcement
+    </button>
+
+    <!-- Send Gift to All Button -->
     <button id="sendAllGiftBtn" 
             class="btn btn-success mr-2" 
             data-bulk-limit="<?= $bulkLimit ?>">
       Send Gift to All
     </button>
+
+    <!-- Create Users Button -->
     <a href="<?= ADMINURL ?>/users-admins/create-users.php" class="btn btn-primary">
       Create Users
     </a>
   </div>
 
-  <!-- Users table -->
+  <!-- Users Table -->
   <table class="table table-bordered">
     <thead>
       <tr>
-        <th>ID</th><th>Username</th><th>Email</th>
-        <th>Country</th><th>Birthdate</th>
-        <th>Ban/Unban</th><th>Comments</th>
-        <th>Orders</th><th>Send Gift</th>
-        <th>Edit</th><th>Delete</th>
+        <th>ID</th>
+        <th>Username</th>
+        <th>Email</th>
+        <th>Country</th>
+        <th>Birthdate</th>
+        <th>Ban/Unban</th>
+        <th>Comments</th>
+        <th>Orders</th>
+        <th>Send Gift</th>
+
+        <!-- New Send Email column -->
+        <th>Send Email</th>
+
+        <th>Edit</th>
+        <th>Delete</th>
       </tr>
     </thead>
     <tbody>
@@ -61,13 +80,13 @@ $bulkLimit = floor($totalUsers / 2);
         <td><?= htmlspecialchars($user->email) ?></td>
         <td><?= htmlspecialchars(!empty($user->Country) ? $user->Country : '–') ?></td>
         <td><?= htmlspecialchars(!empty($user->Birthdate) ? $user->Birthdate : '–') ?></td>
-        <!-- Ban/Unban -->
+        <!-- Ban/Unban Button -->
         <td>
           <button class="btn btn-sm btn-warning toggle-ban" data-id="<?= $user->id ?>">
             <?= $user->is_banned ? 'Unban' : 'Ban' ?>
           </button>
         </td>
-        <!-- View Comments -->
+        <!-- View Comments Button -->
         <td>
           <button class="btn btn-info btn-sm view-comments"
                   data-id="<?= $user->id ?>"
@@ -75,7 +94,7 @@ $bulkLimit = floor($totalUsers / 2);
             View Comments
           </button>
         </td>
-        <!-- View Orders -->
+        <!-- View Orders Button -->
         <td>
           <button class="btn btn-primary btn-sm view-orders"
                   data-id="<?= $user->id ?>"
@@ -83,7 +102,7 @@ $bulkLimit = floor($totalUsers / 2);
             View Orders
           </button>
         </td>
-        <!-- Send Gift -->
+        <!-- Send Gift Button -->
         <td>
           <button class="btn btn-success btn-sm send-gift-user"
                   data-id="<?= $user->id ?>"
@@ -91,12 +110,24 @@ $bulkLimit = floor($totalUsers / 2);
             Send Gift
           </button>
         </td>
-        <!-- Edit -->
+
+        <!-- NEW: Send Email Button -->
+        <td>
+          <button class="btn btn-info btn-sm send-email-user"
+                  data-id="<?= $user->id ?>"
+                  data-username="<?= htmlspecialchars($user->username) ?>"
+                  data-email="<?= htmlspecialchars($user->email) ?>">
+            Send Email
+          </button>
+        </td>
+
+        <!-- Edit User -->
         <td>
           <a href="<?= ADMINURL ?>/users-admins/edit-user.php?id=<?= $user->id ?>"
              class="btn btn-secondary btn-sm">Edit</a>
         </td>
-        <!-- Delete -->
+
+        <!-- Delete User -->
         <td>
           <button class="btn btn-danger btn-sm delete-user" data-id="<?= $user->id ?>">
             Delete
@@ -108,9 +139,9 @@ $bulkLimit = floor($totalUsers / 2);
   </table>
 </div>
 
-<!-- Modals -->
+<!--Modals  -->
 
-<!-- 1) Comments Modal -->
+<!--  Comments Modal -->
 <div class="modal fade" id="commentsModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -125,7 +156,7 @@ $bulkLimit = floor($totalUsers / 2);
   </div>
 </div>
 
-<!-- 2) Orders Modal -->
+<!--  Orders Modal -->
 <div class="modal fade" id="ordersModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -140,7 +171,7 @@ $bulkLimit = floor($totalUsers / 2);
   </div>
 </div>
 
-<!-- 3) Single User Gift Modal -->
+<!--  Single User Gift Modal -->
 <div class="modal fade" id="giftUserModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <form id="giftUserForm">
@@ -152,14 +183,14 @@ $bulkLimit = floor($totalUsers / 2);
           <button type="button" class="close" data-dismiss="modal">&times;</button>
         </div>
         <div class="modal-body">
-          <input type="hidden" name="user_id" id="giftUserId">
+          <input type="hidden" name="user_id" id="giftUserId" />
           <div class="form-group">
             <label>Usage Limit (1–2)</label>
-            <input type="number" name="usage_limit" class="form-control" min="1" max="2" value="1" required>
+            <input type="number" name="usage_limit" class="form-control" min="1" max="2" value="1" required />
           </div>
           <div class="form-group">
             <label>Discount % (max 10%)</label>
-            <input type="number" name="percentage" class="form-control" min="1" max="10" value="10" required>
+            <input type="number" name="percentage" class="form-control" min="1" max="10" value="10" required />
           </div>
         </div>
         <div class="modal-footer">
@@ -170,7 +201,7 @@ $bulkLimit = floor($totalUsers / 2);
   </div>
 </div>
 
-<!-- 4) Bulk Gift Modal -->
+<!--  Bulk Gift Modal -->
 <div class="modal fade" id="giftAllModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <form id="giftAllForm">
@@ -182,10 +213,10 @@ $bulkLimit = floor($totalUsers / 2);
         <div class="modal-body">
           <p>Total users: <strong><?= $totalUsers ?></strong></p>
           <p>Default usage limit: <strong><?= $bulkLimit ?></strong></p>
-          <input type="hidden" name="usage_limit" value="<?= $bulkLimit ?>">
+          <input type="hidden" name="usage_limit" value="<?= $bulkLimit ?>" />
           <div class="form-group">
             <label>Discount % (max 25%)</label>
-            <input type="number" name="percentage" class="form-control" min="1" max="25" value="25" required>
+            <input type="number" name="percentage" class="form-control" min="1" max="25" value="25" required />
           </div>
         </div>
         <div class="modal-footer">
@@ -196,9 +227,78 @@ $bulkLimit = floor($totalUsers / 2);
   </div>
 </div>
 
+<!--  Send Email Modal  -->
+<div class="modal fade" id="sendEmailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form id="sendEmailForm">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Send Email to <span id="emailUsername"></span></h5>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <!-- Hidden user ID -->
+          <input type="hidden" name="user_id" id="emailUserId" />
+
+          <!-- Show user's email (readonly) -->
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" name="email" id="emailUserEmail" class="form-control" readonly />
+          </div>
+
+          <!-- Email Subject -->
+          <div class="form-group">
+            <label>Subject</label>
+            <input type="text" name="subject" class="form-control" required />
+          </div>
+
+          <!-- Email Message -->
+          <div class="form-group">
+            <label>Message</label>
+            <textarea name="message" class="form-control" rows="5" required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Send Email</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!--  Send Announcement Modal  -->
+<div class="modal fade" id="sendAnnouncementModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form id="sendAnnouncementForm">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Send Announcement to All Users</h5>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <!-- Announcement Subject -->
+          <div class="form-group">
+            <label>Subject</label>
+            <input type="text" name="subject" class="form-control" required />
+          </div>
+
+          <!-- Announcement Message -->
+          <div class="form-group">
+            <label>Message</label>
+            <textarea name="message" class="form-control" rows="5" required></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-info">Send Announcement</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
 <?php require "../layouts/footer.php"; ?>
 
-<!-- Scripts -->
+<!--  Scripts  -->
 <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
@@ -208,7 +308,7 @@ function escapeHtml(text) {
   return $('<div>').text(text).html();
 }
 
-// 1) Ban/Unban user
+//  Ban/Unban user
 $(document).on('click', '.toggle-ban', function() {
   const btn   = $(this);
   const userId = btn.data('id');
@@ -221,7 +321,7 @@ $(document).on('click', '.toggle-ban', function() {
   }, 'json').fail(() => alert('Server error.'));
 });
 
-// 2) Delete user
+// Delete user
 $('.delete-user').on('click', function() {
   const userId = $(this).data('id');
   if (!confirm('Confirm delete?')) return;
@@ -234,7 +334,7 @@ $('.delete-user').on('click', function() {
   }, 'json').fail(() => alert('Server error.'));
 });
 
-// 3) View comments
+//  View comments modal
 $(document).on('click', '.view-comments', function() {
   const userId   = $(this).data('id'),
         username = $(this).data('username');
@@ -264,7 +364,7 @@ $(document).on('click', '.view-comments', function() {
     .fail(() => $('#commentsContent').html('<p class="text-danger">Server error.</p>'));
 });
 
-// 4) View orders
+//  View orders modal
 $(document).on('click', '.view-orders', function() {
   const userId   = $(this).data('id'),
         username = $(this).data('username');
@@ -292,13 +392,14 @@ $(document).on('click', '.view-orders', function() {
     .fail(() => $('#ordersContent').html('<p class="text-danger">Server error.</p>'));
 });
 
-// 5) Send gift to single user
+//  Send gift to single user modal open
 $(document).on('click', '.send-gift-user', function() {
   const btn = $(this);
   $('#giftUserId').val(btn.data('id'));
   $('#giftUsername').text(btn.data('username'));
   $('#giftUserModal').modal('show');
 });
+// Send gift to single user submit
 $('#giftUserForm').on('submit', function(e) {
   e.preventDefault();
   $.post('<?= ADMINURL ?>/users-admins/send-gift-user.php', $(this).serialize(), function(res) {
@@ -311,16 +412,59 @@ $('#giftUserForm').on('submit', function(e) {
   }, 'json').fail(() => alert('Server error.'));
 });
 
-// 6) Send gift to all users
+//  Send gift to all users modal open
 $('#sendAllGiftBtn').on('click', function() {
   $('#giftAllModal').modal('show');
 });
+// Send gift to all users submit
 $('#giftAllForm').on('submit', function(e) {
   e.preventDefault();
   $.post('<?= ADMINURL ?>/users-admins/send-gift-all.php', $(this).serialize(), function(res) {
     if (res.success) {
       alert('Bulk gifts sent!');
       $('#giftAllModal').modal('hide');
+    } else {
+      alert('Error: ' + res.error);
+    }
+  }, 'json').fail(() => alert('Server error.'));
+});
+
+//  Send Email Button for single user 
+$(document).on('click', '.send-email-user', function() {
+  const btn = $(this);
+  $('#emailUserId').val(btn.data('id'));
+  $('#emailUsername').text(btn.data('username'));
+  $('#emailUserEmail').val(btn.data('email'));
+  $('#sendEmailForm')[0].reset();
+  $('#sendEmailModal').modal('show');
+});
+
+// Submit send email form
+$('#sendEmailForm').on('submit', function(e) {
+  e.preventDefault();
+  $.post('<?= ADMINURL ?>/users-admins/send-email-user.php', $(this).serialize(), function(res) {
+    if (res.success) {
+      alert('Email sent successfully!');
+      $('#sendEmailModal').modal('hide');
+    } else {
+      alert('Error: ' + res.error);
+    }
+  }, 'json').fail(() => alert('Server error.'));
+});
+
+//  Send Announcement Button for all users
+$('#sendAnnouncementBtn').on('click', function() {
+  $('#sendAnnouncementForm')[0].reset();
+  $('#sendAnnouncementModal').modal('show');
+});
+
+// Submit send announcement form
+$('#sendAnnouncementForm').on('submit', function(e) {
+  e.preventDefault();
+  $.post('<?= ADMINURL ?>/users-admins/send-announcement.php', $(this).serialize(), function(res) {
+    if (res.success) {
+      alert('Announcement sent to all users!');
+      $('#sendAnnouncementModal').modal('hide');
     } else {
       alert('Error: ' + res.error);
     }
