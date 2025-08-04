@@ -1,7 +1,7 @@
 <?php require "../includes/header.php"; ?>
-<?php session_start();
+<?php 
 
-// Check if pending_user exists in session
+// Redirect if no pending user
 if (!isset($_SESSION['pending_user'])) {
     header("Location: register.php");
     exit;
@@ -22,25 +22,25 @@ if (isset($_POST['verify'])) {
         // Insert user into DB
         require "../config/config.php";
 
-        $stmt = $conn->prepare("INSERT INTO users (username, email, mypassword) VALUES (:username, :email, :mypassword)");
+        $stmt = $conn->prepare("INSERT INTO users (username, email, mypassword, country, birthdate) 
+            VALUES (:username, :email, :mypassword, :country, :birthdate)");
         $stmt->execute([
             ':username' => $_SESSION['pending_user']['username'],
             ':email' => $_SESSION['pending_user']['email'],
             ':mypassword' => $_SESSION['pending_user']['password'],
+            ':country' => $_SESSION['pending_user']['country'],
+            ':birthdate' => $_SESSION['pending_user']['birthdate']
         ]);
 
-        // Clear session data
         unset($_SESSION['pending_user']);
         unset($_SESSION['attempts']);
 
         $success = "Your email has been verified! You can now log in.";
-        // Redirect after 3 seconds to login
         header("refresh:3;url=login.php");
     } else {
         $_SESSION['attempts']--;
 
         if ($_SESSION['attempts'] <= 0) {
-            // Clear and redirect to register
             unset($_SESSION['pending_user']);
             unset($_SESSION['attempts']);
             header("Location: register.php");

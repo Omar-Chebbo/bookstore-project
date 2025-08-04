@@ -1,80 +1,72 @@
-<?php require "../includes/header.php";?>
-<?php require "../config/config.php";?>
+<?php require "../includes/header.php"; ?>
+<?php require "../config/config.php"; ?>
 <?php 
-        if(isset($_SESSION['username'])){
-            header("loaction: ".APPURL."");
-        }
+session_start(); // You forgot this
 
-        
-if(isset($_POST['submit'])){
+if (isset($_SESSION['username'])) {
+    header("location: " . APPURL . "");
+    exit;
+}
 
-    //check if any inputs are empty
-       if(empty($_POST['email']) or empty($_POST['password'])){
-        echo "<script> alert ('one or more inputs are empty');</script>";
-       }else {
-        
-        $email=$_POST['email'];
-        $password=$_POST['password'];
+if (isset($_POST['submit'])) {
+    if (empty($_POST['email']) || empty($_POST['password'])) {
+        echo "<script>alert('One or more inputs are empty');</script>";
+    } else {
+        $email = $_POST['email'];
+        $password = $_POST['password'];
 
-        //search if email exist
-        $login=$conn->query("SELECT * FROM users WHERE email='$email'");
-        $login->execute();
+        // Secure: Use prepared statement
+        $stmt = $conn->prepare("SELECT * FROM users WHERE email = :email");
+        $stmt->execute([':email' => $email]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        $fetch=$login->fetch(PDO::FETCH_ASSOC);
-
-        if($login->rowCount()>0){
-            //verify if email is banned
-            if($fetch["is_banned"] != 0){
-                echo "<script>alert('this user has been banned');</script>";
+        if ($user) {
+            if ($user["is_banned"] != 0) {
+                echo "<script>alert('This user has been banned');</script>";
+            } elseif (password_verify($password, $user['mypassword'])) {
+                $_SESSION['username'] = $user['username'];
+                $_SESSION['user_id'] = $user['id'];
+                header("location: " . APPURL . "/");
+                exit;
+            } else {
+                echo "<script>alert('Password or email is incorrect');</script>";
             }
-            //verify the password after unhashed it
-            if(password_verify($password,$fetch['mypassword'])){ 
-
-                $_SESSION['username']=$fetch['username'];
-                $_SESSION['user_id']=$fetch['id'];
-                header("location:".APPURL."/");
-
-
-
-            }else{
-                echo "<script> alert ('password or email are wrong');</script>";
-            }
-
-        }else{
-            echo "<script> alert ('password or email are wrong');</script>";
+        } else {
+            echo "<script>alert('Password or email is incorrect');</script>";
         }
-
-       }
-
     }
-
-
+}
 ?>
 
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <form class="form-control mt-5" method="post" action="login.php">
+            <h4 class="text-center mt-3">Login</h4>
 
-        <div class="row justify-content-center">
-            <div class="col-md-6">
-                <form class="form-control mt-5" method="post" action="login.php">
-                    <h4 class="text-center mt-3"> Login </h4>
-                   
-                    <div class="">
-                        <label for="staticEmail" class="col-sm-2 col-form-label">Email</label>
-                        <div class="">
-                            <input type="email"  name='email' class="form-control" >
-                        </div>
-                    </div>
-                    <div class="">
-                        <label for="inputPassword" class="col-sm-2 col-form-label">Password</label>
-                        <div class="">
-                            <input type="password" name="password" class="form-control" id="inputPassword">
-                        </div>
-                    </div>
-                    <button class="w-100 btn btn-lg btn-primary mt-4 mb-4" name="submit" type="submit">Login</button>
-
-                </form>
+            <div class="mb-3">
+                <label class="form-label">Email</label>
+                <input type="email" name="email" class="form-control" required>
             </div>
-        </div>
- 
-   <?php require "../includes/footer.php";?>
- 
-   
+
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-control" required>
+            </div>
+
+            <div class="mb-3 text-end">
+                <a href="forgot-password.php" class="text-decoration-none">Forgot Password?</a>
+            </div>
+
+            <button class="w-100 btn btn-lg btn-primary mt-2 mb-3" name="submit" type="submit">Login</button>
+
+            <div class="text-center">
+                <small>
+                    Don't have an account?
+                    <a href="register.php" class="text-decoration-none">Register</a>
+                </small>
+            </div>
+        </form>
+    </div>
+</div>
+
+<?php require "../includes/footer.php"; ?>

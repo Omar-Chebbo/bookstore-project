@@ -1,13 +1,15 @@
 <?php require "../includes/header.php"; ?>
 <?php require "../config/config.php"; ?>
 <?php
+
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
+
 require '../PHPMailer/Exception.php';
 require '../PHPMailer/PHPMailer.php';
 require '../PHPMailer/SMTP.php';
 
-session_start();
+
 
 if (isset($_SESSION['username'])) {
     header("Location: " . APPURL . "/");
@@ -18,11 +20,13 @@ if (isset($_POST['submit'])) {
     $username = trim($_POST['username']);
     $email = trim($_POST['email']);
     $password = $_POST['password'];
+    $birthdate = $_POST['birthdate'];
+    $country = $_POST['country'];
 
     $uppercase = preg_match('@[A-Z]@', $password);
     $specialChars = preg_match('@[^\w]@', $password);
 
-    if (empty($username) || empty($email) || empty($password)) {
+    if (empty($username) || empty($email) || empty($password) || empty($birthdate) || empty($country)) {
         echo "<script>alert('All fields are required');</script>";
     } elseif (strlen($password) < 8 || !$uppercase || !$specialChars) {
         echo "<script>alert('Password must be at least 8 characters with uppercase and special character');</script>";
@@ -42,7 +46,6 @@ if (isset($_POST['submit'])) {
             // Send email
             $mail = new PHPMailer(true);
             try {
-                // $mail->SMTPDebug = 2; // enable for debugging
                 $mail->isSMTP();
                 $mail->Host       = 'smtp.gmail.com';
                 $mail->SMTPAuth   = true;
@@ -58,7 +61,7 @@ if (isset($_POST['submit'])) {
                 $mail->Body    = "Your verification code is: <b>$verification_code</b>";
 
                 $mail->send();
-                
+
             } catch (Exception $e) {
                 echo "<script>alert('Failed to send email. Try again.');</script>";
                 exit;
@@ -68,86 +71,75 @@ if (isset($_POST['submit'])) {
                 'username' => $username,
                 'email' => $email,
                 'password' => password_hash($password, PASSWORD_DEFAULT),
+                'birthdate' => $birthdate,
+                'country' => $country,
                 'code' => $verification_code
             ];
-            header("Location:verify.php");
+
+            header("Location: verify.php");
             exit;
         }
     }
 }
 ?>
 
+<!-- Register Form -->
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <form class="form-control mt-5" method="post" action="register.php">  
+                <h4 class="text-center mt-3">Register</h4>
 
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarSupportedContent">
-        <!-- <form class="d-flex">
-            <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search">
-            <button class="btn btn-outline-success" type="submit">Search</button>
-        </form> -->
-        <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
-            <li class="nav-item">
-            <a class="nav-link active" aria-current="page" href="#">Home</a>
-            </li>
-            <!-- <li class="nav-item">
-            <a class="nav-link" href="#">Link</a>
-            </li> -->
-            <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                Username
-            </a>
-            <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                <li><a class="dropdown-item" href="#">Action</a></li>
-                <li><a class="dropdown-item" href="#">Another action</a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="#">Something else here</a></li>
-            </ul>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#">Login</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#">Register</a>
-            </li>
-        </ul>
-       
+                <!-- Username -->
+                <div class="mb-3">
+                    <label class="form-label">Username</label>
+                    <input type="text" name="username" class="form-control" required>
+                </div>
+
+                <!-- Email -->
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input type="email" name="email" class="form-control" required>
+                </div>
+
+                <!-- Password -->
+                <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <input type="password" name="password" class="form-control" required>
+                    <small class="text-muted">At least 8 characters, one uppercase, one special character</small>
+                </div>
+
+                <!-- Birthdate -->
+                <div class="mb-3">
+                    <label class="form-label">Birthdate</label>
+                    <input type="date" name="birthdate" class="form-control" required>
+                </div>
+
+                <!-- Country -->
+                <div class="mb-3">
+                    <label class="form-label">Country</label>
+                    <select name="country" class="form-control" required>
+                        <option value="">-- Select Country --</option>
+                        <option value="Lebanon">Lebanon</option>
+                        <option value="United States">United States</option>
+                        <option value="Canada">Canada</option>
+                        <option value="France">France</option>
+                        <option value="Germany">Germany</option>
+                        <option value="UK">UK</option>
+                        <!-- Add more countries as needed -->
+                    </select>
+                </div>
+
+                <!-- Register Button -->
+                <button name="submit" class="w-100 btn btn-lg btn-primary mt-2" type="submit">Register</button>
+
+                <!-- Login Link -->
+                <p class="text-center mt-3 mb-3">
+                    Already have an account? <a href="login.php">Login here</a>
+                </p>
+            </form>
         </div>
     </div>
-    </nav>
+</div>
 
-    <div class="container">
-
-        <div class="row justify-content-center">
-            <div class="col-md-6">
-                <form class="form-control mt-5" method="post" action="register.php">  
-                    <h4 class="text-center mt-3"> Register </h4> 
-                    <div class="">
-                        <label for="" class="col-sm-2 col-form-label">Username</label>
-                        <div class="">
-                            <input type="text" name="username" class="form-control" >
-                        </div>
-                    </div>
-                    <div class="">
-                        <label for="staticEmail" class="col-sm-2 col-form-label">Email</label>
-                        <div class="">
-                            <input type="email" name="email" class="form-control" id="" value="">
-                        </div>
-                    </div>
-                    <div class="">
-                        <label for="inputPassword" class="col-sm-2 col-form-label">Password</label>
-                        <div class="">
-                            <input type="password" name="password" class="form-control" id="inputPassword">
-                        </div>
-                    </div>
-                    <button name="submit" class="w-100 btn btn-lg btn-primary mt-4 mb-4" type="submit">register</button>
-
-                </form>
-            </div>
-        </div>
- 
-   
-
-        
-<?php require "../includes/footer.php";?>
- 
+<?php require "../includes/footer.php"; ?>
